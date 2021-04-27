@@ -49,6 +49,12 @@ Direction dirNEG(const Direction dir)
 }
 
 static inline
+int coordDirAxis(const Coord coord, const Direction dir)
+{
+	return dirLR(dir)?coord.x:coord.y;
+}
+
+static inline
 int coordMin(const Coord coord)
 {
 	return coord.c1 < coord.c2 ? coord.c1 : coord.c2;
