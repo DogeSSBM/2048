@@ -1,51 +1,55 @@
 #include "Includes.h"
-#define NUMCOLOR		12
+#define NUMCOLOR		13
 
 typedef struct{
 	uint **num;
-	uint **flipped;
 	uint len;
 	uint scale;
-	Color colors[NUMCOLOR];
 }Grid;
+
+Color gridColor(const uint n)
+{
+	const static Color colors[NUMCOLOR] = {
+		(Color){205, 193, 180, 0xFF}, // None
+		(Color){238, 228, 218, 0xFF},	// 2
+		(Color){237, 224, 200, 0xFF},	// 4
+		(Color){242, 177, 121, 0xFF},	// 8
+		(Color){245, 149,  99, 0xFF},	// 16
+		(Color){246, 124,  95, 0xFF},	// 32
+		(Color){246,  94,  59, 0xFF},	// 64
+		(Color){237, 207, 114, 0xFF},	// 128
+		(Color){237, 204,  97, 0xFF},	// 256
+		(Color){237, 200,  80, 0xFF},	// 512
+		(Color){237, 197,  63, 0xFF},	// 1024
+		(Color){237, 194,  46, 0xFF},	// 2048
+		WHITE					// Super
+	};
+	return colors[clamp(n,0,NUMCOLOR)];
+}
 
 void freeGrid(const Grid grid)
 {
-	if(grid.num == NULL)
-		return;
-	for(uint i = 0; i < grid.len; i++){
-		if(grid.num[i] != NULL)
-			free(grid.num[i]);
-	}
+	for(uint i = 0; i < grid.len; i++)
+		free(grid.num[i]);
 	free(grid.num);
+}
+
+void zeroGrid(Grid grid)
+{
+	for(uint i = 0; i < grid.len; i++)
+		memset(grid.num[i], 0, sizeof(uint));
 }
 
 Grid newGrid(const uint len, const uint scale)
 {
 	Grid ret = {
 		.num = malloc(sizeof(uint*)*len),
-		.flipped = malloc(sizeof(uint*)*len),
 		.len = len,
-		.scale = scale,
-		.colors = {
-			(Color){238, 228, 218, 0xFF},	// 2
-			(Color){237, 224, 200, 0xFF},	// 4
-			(Color){242, 177, 121, 0xFF},	// 8
-			(Color){245, 149,  99, 0xFF},	// 16
-			(Color){246, 124,  95, 0xFF},	// 32
-			(Color){246,  94,  59, 0xFF},	// 64
-			(Color){237, 207, 114, 0xFF},	// 128
-			(Color){237, 204,  97, 0xFF},	// 256
-			(Color){237, 200,  80, 0xFF},	// 512
-			(Color){237, 197,  63, 0xFF},	// 1024
-			(Color){237, 194,  46, 0xFF},	// 2048
-			WHITE					// Super
-		}
+		.scale = scale
 	};
-	for(uint i = 0; i < len; i++){
+	for(uint i = 0; i < len; i++)
 		ret.num[i] = malloc(sizeof(uint)*len);
-		ret.flipped[i] = malloc(sizeof(uint)*len);
-	}
+	zeroGrid(ret);
 	return ret;
 }
 
@@ -63,26 +67,24 @@ void fillSquareCoordResize(const Coord pos, const uint len, const int resize)
 	);
 }
 
-uint gridnum(const uint num)
+uint gridLabel(const uint num)
 {
-	uint ret = 1;
-	for(uint i = 0; i < num; i++)
-		ret *= 2;
-	return ret;
+	if(num == 0)
+		return 0;
+	return (uint)pow(2, num);
 }
 
-void drawGrid(const Grid grid, const bool b)
+void drawGrid(const Grid grid)
 {
 	for(uint y = 0; y < grid.len; y++){
 		for(uint x = 0; x < grid.len; x++){
 			setColor(GREY);
 			fillSquareCoordResize(coordMul((Coord){x, y}, grid.scale), grid.scale, -2);
-			setColor(grid.colors[grid.num[x][y]]);
+			setColor(gridColor(grid.num[x][y]));
 			fillSquareCoordResize(coordMul((Coord){x, y}, grid.scale), grid.scale, -5);
-			const uint gnum = gridnum(grid.num[x][y]);
 			char buf[64] = {0};
-			sprintf(buf, "%u", gnum);
-			// printf("gnum: %u, buf: %s\n", gnum, buf);
+			if(grid.num[x][y]>0)
+				sprintf(buf, "%u", gridLabel(grid.num[x][y]));
 			setFontSize(grid.scale/6);
 			setFontColor(BLACK);
 			drawTextCenteredCoord(coordAdd(coordMul((Coord){x, y}, grid.scale), grid.scale/2), buf);
@@ -104,112 +106,193 @@ bool moveDir(const Direction dir)
 	);
 }
 
-void getFlipped(uint **num, uint **flipped, const uint len)
+bool shiftGridU(Grid grid, const bool combine)
 {
+	bool shiftedx = false;
+	for(int x = 0; x < grid.len; x++){
+		bool shiftedy = false;
+		do{
+			for(int y = 1; y < grid.len; y++){
+				if(combine){
+					if(grid.num[x][y-1] > 0 && grid.num[x][y-1] == grid.num[x][y]){
+						grid.num[x][y-1]+=1;
+						grid.num[x][y]=0;
+						shiftedx|=true;
+					}
+				}else{
+					if(grid.num[x][y-1] == 0 && grid.num[x][y] > 0){
+						grid.num[x][y-1]=grid.num[x][y];
+						grid.num[x][y]=0;
+						shiftedy = true;
+						shiftedx|=true;
+					}else{shiftedy = false;}
+				}
+			}
+		}while(!combine && shiftedy);
+	}
+	return shiftedx;
+}
 
-	for(uint x = 0; x < len; x++){
-		for(uint y = 0; y < len; y++){
-			flipped[len-y][x] = num[x][y];
+bool shiftGridD(Grid grid, const bool combine)
+{
+	bool shiftedx = false;
+	for(int x = 0; x < grid.len; x++){
+		bool shiftedy = false;
+		do{
+			for(int y = grid.len-2; y >= 0; y--){
+				if(combine){
+					if(grid.num[x][y+1] > 0 && grid.num[x][y+1] == grid.num[x][y]){
+						grid.num[x][y+1]+=1;
+						grid.num[x][y]=0;
+						shiftedx|=true;
+					}
+				}else{
+					if(grid.num[x][y+1] == 0 && grid.num[x][y] > 0){
+						grid.num[x][y+1]=grid.num[x][y];
+						grid.num[x][y]=0;
+						shiftedy = true;
+						shiftedx|=true;
+					}else{shiftedy = false;}
+				}
+			}
+		}while(!combine && shiftedy);
+	}
+	return shiftedx;
+}
+
+bool shiftGridL(Grid grid, const bool combine)
+{
+	bool shiftedy = false;
+	for(int y = 0; y < grid.len; y++){
+		bool shiftedx = false;
+		do{
+			for(int x = 1; x < grid.len; x++){
+				if(combine){
+					if(grid.num[x-1][y] > 0 && grid.num[x-1][y] == grid.num[x][y]){
+						grid.num[x-1][y]+=1;
+						grid.num[x][y]=0;
+						shiftedy|=true;
+					}
+				}else{
+					if(grid.num[x-1][y] == 0 && grid.num[x][y] > 0){
+						grid.num[x-1][y]=grid.num[x][y];
+						grid.num[x][y]=0;
+						shiftedx = true;
+						shiftedy|=true;
+					}else{shiftedx = false;}
+				}
+			}
+		}while(!combine && shiftedx);
+	}
+	return shiftedy;
+}
+
+bool shiftGridR(Grid grid, const bool combine)
+{
+	bool shiftedy = false;
+	for(int y = 0; y < grid.len; y++){
+		bool shiftedx = false;
+		do{
+			for(int x = grid.len-2; x >= 0; x--){
+				if(combine){
+					if(grid.num[x+1][y] > 0 && grid.num[x+1][y] == grid.num[x][y]){
+						grid.num[x+1][y]+=1;
+						grid.num[x][y]=0;
+						shiftedy|=true;
+					}
+				}else{
+					if(grid.num[x+1][y] == 0 && grid.num[x][y] > 0){
+						grid.num[x+1][y]=grid.num[x][y];
+						grid.num[x][y]=0;
+						shiftedx = true;
+						shiftedy|=true;
+					}else{shiftedx = false;}
+				}
+			}
+		}while(!combine && shiftedx);
+	}
+	return shiftedy;
+}
+
+uint gridNumEmpty(const Grid grid)
+{
+	uint ret = 0;
+	for(uint y = 0; y < grid.len; y++){
+		for(uint x = 0; x < grid.len; x++){
+			ret += grid.num[x][y] == 0;
 		}
 	}
+	return ret;
+}
+
+void place(Grid grid, const uint pos)
+{
+	uint current = 0;
+	for(uint y = 0; y < grid.len; y++){
+		for(uint x = 0; x < grid.len; x++){
+			if(current == pos && grid.num[x][y] == 0){
+				grid.num[x][y] = rand()%3==2?2:1;
+				return;
+			}
+			current += grid.num[x][y] == 0;
+		}
+	}
+}
+
+bool shiftGrid(Grid grid, const Direction dir)
+{
+	bool ret = false;
+	for(uint i = 0; i < 3; i++){
+		switch (dir) {
+			case DIR_U:
+				ret|=shiftGridU(grid, i&1);
+				break;
+			case DIR_R:
+				ret|=shiftGridR(grid, i&1);
+				break;
+			case DIR_D:
+				ret|=shiftGridD(grid, i&1);
+				break;
+			case DIR_L:
+				ret|=shiftGridL(grid, i&1);
+				break;
+		}
+	}
+	return ret;
 }
 
 int main(int argc, char const *argv[])
 {
 	Grid grid = newGrid(4, 200);
-	for(uint y = 0; y < grid.len; y++){
-		for(uint x = 0; x < grid.len; x++){
-			grid.num[x][y] = (rand()%(NUMCOLOR*2))/2;
-			printf("%4u ", grid.num[x][y]);
-		}
-		printf("\n");
-	}
-	getFlipped(grid.num, grid.flipped, grid.len);
-
+	place(grid, rand()%grid.len*grid.len);
+	place(grid, rand()%grid.len*grid.len-1);
 	const Length window = coordMul((const Coord){grid.len, grid.len}, grid.scale);
 	init(window);
 
-	bool b = false;
+
 	while(1){
 		Ticks frameStart = getTicks();
 		clear();
 
 		for(uint i = 0; i < 4; i++){
 			if(moveDir(i)){
-				// shiftGrid(grid, i);
-				printf("Shift %c\n", DirectionChar[i]);
+				const bool shifted = shiftGrid(grid, i);
+				const uint empty = gridNumEmpty(grid);
+				if(empty <= 1){
+					printf("You loose!\n");
+					freeGrid(grid);
+					exit(0);
+				}else if(shifted){
+					place(grid, rand()%empty);
+				}
 				break;
 			}
 		}
-		if(keyPressed(SDL_SCANCODE_SPACE)){
-			b = !b;
-		}
 
-		drawGrid(grid, b);
+		drawGrid(grid);
 
 		draw();
 		events(frameStart + TPF);
 	}
 	return 0;
 }
-
-
-
-
-
-
-/*
-Down
-2--   2--   2--  4-   #
--2-   24-   22-  24   #
-2-2   2-4   -22  24   #
-244   244   224  44   #
-
-  2
-  -
-  2
-  2
-*/
-
-// void reverseLine(uint *line)
-// {
-// 	uint new[4];
-// 	for(uint i = 0; i < 4; i++)
-// 		new[3-i]=line[i];
-// 	memcpy(line, new, sizeof(uint)*4);
-// }
-//
-// void shift(uint *line, const uint len)
-// {
-// 	bool match = false;
-// 	do{
-// 		for(int i = len-2; i >= 0; i--){
-// 			if(line[i]==0 && line[i+1] != 0){
-// 				match|=true;
-// 				line[i]=line[i+1];
-// 				line[i+1]=0;
-// 			}
-// 		}
-// 	}while(match);
-// }
-//
-// void shiftLine(uint *line, const Direction dir, const uint len)
-// {
-// 	if(dirPOS(dir))
-// 		reverseLine(line);
-// 	shift(line);
-// 	if(dirPOS(dir))
-// 		reverseLine(line);
-// }
-//
-// Grid shiftGrid(const Grid grid, const Direction dir)
-// {
-// 	uint lines[4];
-// 	for(uint i = 0; i < 4; i++){
-// 		for(uint j = 0; j < 4; j++){
-// 			lines[i][j] = grid.num[dirUD(dir)?i:j][dirUD(dir)?j:i];
-// 		}
-// 	}
-//
-//
-// }
