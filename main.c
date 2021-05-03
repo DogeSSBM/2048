@@ -279,7 +279,7 @@ int main(int argc, char const *argv[])
 				const bool shifted = shiftGrid(grid, i);
 				const uint empty = gridNumEmpty(grid);
 				if(empty <= 1){
-					printf("You loose!\n");
+					printf("You lose!\n");
 					freeGrid(grid);
 					exit(0);
 				}else if(shifted){
