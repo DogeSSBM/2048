@@ -106,114 +106,6 @@ bool moveDir(const Direction dir)
 	);
 }
 
-bool shiftGridU(Grid grid, const bool combine)
-{
-	bool shiftedx = false;
-	for(int x = 0; x < grid.len; x++){
-		bool shiftedy = false;
-		do{
-			for(int y = 1; y < grid.len; y++){
-				if(combine){
-					if(grid.num[x][y-1] > 0 && grid.num[x][y-1] == grid.num[x][y]){
-						grid.num[x][y-1]+=1;
-						grid.num[x][y]=0;
-						shiftedx|=true;
-					}
-				}else{
-					if(grid.num[x][y-1] == 0 && grid.num[x][y] > 0){
-						grid.num[x][y-1]=grid.num[x][y];
-						grid.num[x][y]=0;
-						shiftedy = true;
-						shiftedx|=true;
-					}else{shiftedy = false;}
-				}
-			}
-		}while(!combine && shiftedy);
-	}
-	return shiftedx;
-}
-
-bool shiftGridD(Grid grid, const bool combine)
-{
-	bool shiftedx = false;
-	for(int x = 0; x < grid.len; x++){
-		bool shiftedy = false;
-		do{
-			for(int y = grid.len-2; y >= 0; y--){
-				if(combine){
-					if(grid.num[x][y+1] > 0 && grid.num[x][y+1] == grid.num[x][y]){
-						grid.num[x][y+1]+=1;
-						grid.num[x][y]=0;
-						shiftedx|=true;
-					}
-				}else{
-					if(grid.num[x][y+1] == 0 && grid.num[x][y] > 0){
-						grid.num[x][y+1]=grid.num[x][y];
-						grid.num[x][y]=0;
-						shiftedy = true;
-						shiftedx|=true;
-					}else{shiftedy = false;}
-				}
-			}
-		}while(!combine && shiftedy);
-	}
-	return shiftedx;
-}
-
-bool shiftGridL(Grid grid, const bool combine)
-{
-	bool shiftedy = false;
-	for(int y = 0; y < grid.len; y++){
-		bool shiftedx = false;
-		do{
-			for(int x = 1; x < grid.len; x++){
-				if(combine){
-					if(grid.num[x-1][y] > 0 && grid.num[x-1][y] == grid.num[x][y]){
-						grid.num[x-1][y]+=1;
-						grid.num[x][y]=0;
-						shiftedy|=true;
-					}
-				}else{
-					if(grid.num[x-1][y] == 0 && grid.num[x][y] > 0){
-						grid.num[x-1][y]=grid.num[x][y];
-						grid.num[x][y]=0;
-						shiftedx = true;
-						shiftedy|=true;
-					}else{shiftedx = false;}
-				}
-			}
-		}while(!combine && shiftedx);
-	}
-	return shiftedy;
-}
-
-bool shiftGridR(Grid grid, const bool combine)
-{
-	bool shiftedy = false;
-	for(int y = 0; y < grid.len; y++){
-		bool shiftedx = false;
-		do{
-			for(int x = grid.len-2; x >= 0; x--){
-				if(combine){
-					if(grid.num[x+1][y] > 0 && grid.num[x+1][y] == grid.num[x][y]){
-						grid.num[x+1][y]+=1;
-						grid.num[x][y]=0;
-						shiftedy|=true;
-					}
-				}else{
-					if(grid.num[x+1][y] == 0 && grid.num[x][y] > 0){
-						grid.num[x+1][y]=grid.num[x][y];
-						grid.num[x][y]=0;
-						shiftedx = true;
-						shiftedy|=true;
-					}else{shiftedx = false;}
-				}
-			}
-		}while(!combine && shiftedx);
-	}
-	return shiftedy;
-}
-
 uint gridNumEmpty(const Grid grid)
 {
 	uint ret = 0;
@@ -239,25 +131,64 @@ void place(Grid grid, const uint pos)
 	}
 }
 
+bool shiftGridDir(Grid grid, const bool combine, const Direction dir)
+{
+	bool shiftedouter = false;
+	int x;
+	int y;
+	int mx = 0;
+	int my = 0;
+	if(dirUD(dir)){
+		my = dirPOS(dir) ? 1 : -1;
+	}else{
+		mx = dirPOS(dir) ? 1 : -1;
+	}
+	for(int j = 0; j < grid.len; j++){
+		bool shiftedinner = false;
+		do{
+			for(
+				int k=dirPOS(dir) ? grid.len-2 : 1;
+				dirPOS(dir) ? k>=0 : k < grid.len;
+				k+=dirPOS(dir)?-1:1
+			){
+				if(dirUD(dir)){
+					x = j;
+					y = k;
+				}else{
+					x = k;
+					y = j;
+				}
+				if(combine){
+					if(
+						grid.num[x+mx][y+my] > 0 &&
+						grid.num[x+mx][y+my] == grid.num[x][y]
+					){
+						grid.num[x+mx][y+my] += 1;
+						grid.num[x][y] = 0;
+						shiftedouter |= true;
+					}
+				}else{
+					if(
+						grid.num[x+mx][y+my] == 0 &&
+						grid.num[x][y] > 0
+					){
+						grid.num[x+mx][y+my] = grid.num[x][y];
+						grid.num[x][y]=0;
+						shiftedinner = true;
+						shiftedouter|=true;
+					}else{shiftedinner = false;}
+				}
+			}
+		}while(!combine && shiftedinner);
+	}
+	return shiftedouter;
+}
+
 bool shiftGrid(Grid grid, const Direction dir)
 {
 	bool ret = false;
-	for(uint i = 0; i < 3; i++){
-		switch (dir) {
-			case DIR_U:
-				ret|=shiftGridU(grid, i&1);
-				break;
-			case DIR_R:
-				ret|=shiftGridR(grid, i&1);
-				break;
-			case DIR_D:
-				ret|=shiftGridD(grid, i&1);
-				break;
-			case DIR_L:
-				ret|=shiftGridL(grid, i&1);
-				break;
-		}
-	}
+	for(uint i = 0; i < 3; i++)
+		ret|=shiftGridDir(grid, i&1, dir);
 	return ret;
 }
 
