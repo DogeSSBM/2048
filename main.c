@@ -131,6 +131,12 @@ void place(Grid grid, const uint pos)
 	}
 }
 
+/*
+
+4-22-
+
+*/
+
 bool shiftGridDir(Grid grid, const bool combine, const Direction dir)
 {
 	bool shiftedouter = false;
@@ -147,9 +153,9 @@ bool shiftGridDir(Grid grid, const bool combine, const Direction dir)
 		bool shiftedinner = false;
 		do{
 			for(
-				int k=dirPOS(dir) ? grid.len-2 : 1;
-				dirPOS(dir) ? k>=0 : k < grid.len;
-				k+=dirPOS(dir)?-1:1
+				int k=dirPOS(dir)	? grid.len-2	: 1;
+				dirPOS(dir)		? k>=0		: k < grid.len;
+				k+=dirPOS(dir)	? -1 			: 1
 			){
 				if(dirUD(dir)){
 					x = j;
