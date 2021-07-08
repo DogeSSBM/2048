@@ -2,7 +2,7 @@
 
 ## Demo
 <!-- ![Demo](./Demo.gif) -->
-<img src="./Demo.gif" height="400">
+<img src="./Demo.gif" height="500">
 
 ## Description
 The objective is simple: get to the 2048 tile!
