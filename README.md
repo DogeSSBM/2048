@@ -1,7 +1,7 @@
 # 2048
 
 ## Demo
-[Demo](Demo.gif)
+![Demo](./Demo.gif)
 
 ## Description
 
